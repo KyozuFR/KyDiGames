@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "kydigames",
+  "version": "${version}",
+  "name": "KyDiGames",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/kydigames/icon.png",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "fr.kydi.kydigames.Kydigames"
+    ]
+  },
+  "mixins": [
+    "kydigames.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
