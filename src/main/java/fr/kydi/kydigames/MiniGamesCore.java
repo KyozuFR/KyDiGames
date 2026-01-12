@@ -25,8 +25,6 @@ import java.util.concurrent.ScheduledFuture;
 /**
  * Core class for managing mini-games
  * Singleton pattern
- *
- * @Author Amaury Mulcey
  */
 public class MiniGamesCore {
     // Constant (should be moved away later)
@@ -34,7 +32,7 @@ public class MiniGamesCore {
     private static final int VOTE_TIMEOUT_DURATION = 5;
 
 
-    private static MiniGamesCore instance;
+    private static volatile MiniGamesCore instance;
     private MinecraftServer server;
     private PlayerManager playerManager;
 
@@ -53,35 +51,39 @@ public class MiniGamesCore {
 
     /** Get the singleton instance */
     public static MiniGamesCore getInstance() {
-        if (instance == null) {
-            instance = new MiniGamesCore();
+        if (MiniGamesCore.instance == null) {
+            synchronized(MiniGamesCore.class) {
+                if (MiniGamesCore.instance == null) {
+                    MiniGamesCore.instance = new MiniGamesCore();
 
-            // Register mini-games (may become a loop to load from config)
-            instance.registeredGames.add(new TestGame());
+                    // Register mini-games (may become a loop to load from config)
+                    instance.registeredGames.add(new TestGame());
 
-            // Register vote command
-            CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-                dispatcher.register(CommandManager.literal("vote")
-                        .then(CommandManager.argument("choice", StringArgumentType.word())
-                                .executes(context -> {
-                                    String choice = StringArgumentType.getString(context, "choice");
-                                    ServerCommandSource source = context.getSource();
-                                    ServerPlayerEntity player = source.getPlayer();
+                    // Register vote command
+                    CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+                        dispatcher.register(CommandManager.literal("vote")
+                                .then(CommandManager.argument("choice", StringArgumentType.word())
+                                        .executes(context -> {
+                                            String choice = StringArgumentType.getString(context, "choice");
+                                            ServerCommandSource source = context.getSource();
+                                            ServerPlayerEntity player = source.getPlayer();
 
-                                    if (choice.equalsIgnoreCase("yes") || choice.equalsIgnoreCase("y")) {
-                                        instance.vote(player, true);
-                                    } else if (choice.equalsIgnoreCase("no") || choice.equalsIgnoreCase("n")) {
-                                        instance.vote(player, false);
-                                    } else if (player != null) {
-                                        player.sendMessage(Text.literal("§eNeed Help? -> type /vote yes or /vote no"), false);
-                                    }
-                                    return 1;
-                                })
-                        )
-                );
-            });
+                                            if (choice.equalsIgnoreCase("yes") || choice.equalsIgnoreCase("y")) {
+                                                instance.vote(player, true);
+                                            } else if (choice.equalsIgnoreCase("no") || choice.equalsIgnoreCase("n")) {
+                                                instance.vote(player, false);
+                                            } else if (player != null) {
+                                                player.sendMessage(Text.literal("§eNeed Help? -> type /vote yes or /vote no"), false);
+                                            }
+                                            return 1;
+                                        })
+                                )
+                        );
+                    });
+                }
+            }
         }
-        return instance;
+        return MiniGamesCore.instance;
     }
 
     /** Connect the manager to a server instance */
@@ -92,6 +94,9 @@ public class MiniGamesCore {
 
         ServerPlayConnectionEvents.DISCONNECT.register((player, serverInstance) -> {
             votes.remove(player.getPlayer());
+
+            // Check if we need to end the vote early
+            vote();
         });
     }
 
@@ -123,21 +128,22 @@ public class MiniGamesCore {
     }
 
     /** Handle player votes */
-    public void vote(ServerPlayerEntity player, boolean yes) {
+    public void vote(ServerPlayerEntity player, boolean choice) {
         if (currentState != GameState.VOTING) {
             player.sendMessage(Text.literal("§cNo vote in progress"), false);
             return;
         }
-        if (votes.containsKey(player)) return;
 
-        if (yes) {
-            votes.put(player, true);
-        } else {
-            votes.put(player, false);
-        }
+        votes.put(player, choice);
 
         player.sendMessage(Text.literal("§7Vote registered"), false);
 
+        if (votes.size() >= playerManager.getCurrentPlayerCount()) {
+            endVote();
+        }
+    }
+
+    private void vote() {
         if (votes.size() >= playerManager.getCurrentPlayerCount()) {
             endVote();
         }
