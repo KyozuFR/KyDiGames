@@ -1,15 +1,13 @@
 package fr.kydi.kydigames.minigames;
 
-import fr.kydi.kydigames.MiniGamesCore;
-
-public class TestGame implements MiniGame {
+public class TestMniGame implements MiniGame {
     @Override
     public String getName() {
         return "Test";
     }
 
     @Override
-    public int getGameDuration() {
+    public int getDuration() {
         return 10;
     }
 

@@ -1,19 +1,8 @@
-package fr.kydi.kydigames;
+package fr.kydi.kydigames.core;
 
-import fr.kydi.kydigames.minigames.GameState;
+import fr.kydi.kydigames.commands.VoteCommand;
 import fr.kydi.kydigames.minigames.MiniGame;
-import fr.kydi.kydigames.minigames.TestGame;
-
-import com.mojang.brigadier.arguments.StringArgumentType;
-
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.PlayerManager;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
+import fr.kydi.kydigames.minigames.TestMniGame;
 
 import java.util.*;
 
@@ -22,17 +11,28 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ScheduledFuture;
 
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.minecraft.client.sound.Sound;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.PlayerManager;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvent;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.text.Text;
+
 /**
  * Core class for managing mini-games
  * Singleton pattern
  */
-public class MiniGamesCore {
+public class MiniGamesManager {
     // Constant (should be moved away later)
     private static final int VOTE_DURATION = 15;
     private static final int VOTE_TIMEOUT_DURATION = 5;
 
 
-    private static volatile MiniGamesCore instance;
+    private static volatile MiniGamesManager instance;
     private MinecraftServer server;
     private PlayerManager playerManager;
 
@@ -47,43 +47,26 @@ public class MiniGamesCore {
     private final Map<ServerPlayerEntity, Boolean> votes = new HashMap<>();
 
     /** Private constructor for singleton */
-    private MiniGamesCore() {}
+    private MiniGamesManager() {}
 
     /** Get the singleton instance */
-    public static MiniGamesCore getInstance() {
-        if (MiniGamesCore.instance == null) {
-            synchronized(MiniGamesCore.class) {
-                if (MiniGamesCore.instance == null) {
-                    MiniGamesCore.instance = new MiniGamesCore();
+    public static MiniGamesManager getInstance() {
+        if (MiniGamesManager.instance == null) {
+            synchronized(MiniGamesManager.class) {
+                if (MiniGamesManager.instance == null) {
+                    MiniGamesManager.instance = new MiniGamesManager();
 
                     // Register mini-games (may become a loop to load from config)
-                    instance.registeredGames.add(new TestGame());
+                    instance.registeredGames.add(new TestMniGame());
 
                     // Register vote command
                     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-                        dispatcher.register(CommandManager.literal("vote")
-                                .then(CommandManager.argument("choice", StringArgumentType.word())
-                                        .executes(context -> {
-                                            String choice = StringArgumentType.getString(context, "choice");
-                                            ServerCommandSource source = context.getSource();
-                                            ServerPlayerEntity player = source.getPlayer();
-
-                                            if (choice.equalsIgnoreCase("yes") || choice.equalsIgnoreCase("y")) {
-                                                instance.vote(player, true);
-                                            } else if (choice.equalsIgnoreCase("no") || choice.equalsIgnoreCase("n")) {
-                                                instance.vote(player, false);
-                                            } else if (player != null) {
-                                                player.sendMessage(Text.literal("§eNeed Help? -> type /vote yes or /vote no"), false);
-                                            }
-                                            return 1;
-                                        })
-                                )
-                        );
+                        new VoteCommand().register(dispatcher);
                     });
                 }
             }
         }
-        return MiniGamesCore.instance;
+        return MiniGamesManager.instance;
     }
 
     /** Connect the manager to a server instance */
@@ -94,9 +77,7 @@ public class MiniGamesCore {
 
         ServerPlayConnectionEvents.DISCONNECT.register((player, serverInstance) -> {
             votes.remove(player.getPlayer());
-
-            // Check if we need to end the vote early
-            vote();
+            checkVote();
         });
     }
 
@@ -118,7 +99,7 @@ public class MiniGamesCore {
         currentState = GameState.VOTING;
 
         playerManager.broadcast(Text.of("§6Vote for the next mini-game §b" + currentGame.getName()), false);
-        playerManager.broadcast(Text.of("§eType /vote yes or /vote no"), false);
+        playerManager.broadcast(Text.of("§eType /vote"), false);
 
         if (voteTask != null) {
             voteTask.cancel(false);
@@ -138,12 +119,10 @@ public class MiniGamesCore {
 
         player.sendMessage(Text.literal("§7Vote registered"), false);
 
-        if (votes.size() >= playerManager.getCurrentPlayerCount()) {
-            endVote();
-        }
+        checkVote();
     }
 
-    private void vote() {
+    private void checkVote() {
         if (votes.size() >= playerManager.getCurrentPlayerCount()) {
             endVote();
         }
@@ -186,7 +165,7 @@ public class MiniGamesCore {
             gameTask.cancel(false);
         }
 
-        gameTask = runDelayed(this::stopGame, currentGame.getGameDuration());
+        gameTask = runDelayed(this::stopGame, currentGame.getDuration());
     }
 
     private void stopGame() {

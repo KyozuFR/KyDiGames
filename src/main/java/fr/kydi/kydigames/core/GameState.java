@@ -1,4 +1,4 @@
-package fr.kydi.kydigames.minigames;
+package fr.kydi.kydigames.core;
 
 public enum GameState {
     IDLE,
