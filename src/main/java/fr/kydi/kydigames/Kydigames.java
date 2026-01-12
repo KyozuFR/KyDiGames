@@ -9,6 +9,6 @@ public class Kydigames implements ModInitializer {
     public void onInitialize() {
         MiniGamesCore core = MiniGamesCore.getInstance();
 
-        ServerLifecycleEvents.SERVER_STARTED.register(core::setServer);
+        ServerLifecycleEvents.SERVER_STARTED.register(core::setupManager);
     }
 }

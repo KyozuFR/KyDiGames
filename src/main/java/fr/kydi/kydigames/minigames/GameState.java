@@ -1,7 +1,7 @@
 package fr.kydi.kydigames.minigames;
 
 public enum GameState {
-    WAITING,
+    IDLE,
     VOTING,
-    RUNNING
+    PLAYING
 }
