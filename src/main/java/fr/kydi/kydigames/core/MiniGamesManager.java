@@ -2,7 +2,7 @@ package fr.kydi.kydigames.core;
 
 import fr.kydi.kydigames.commands.VoteCommand;
 import fr.kydi.kydigames.minigames.MiniGame;
-import fr.kydi.kydigames.minigames.TestMniGame;
+import fr.kydi.kydigames.minigames.OneHeartChallenge;
 
 import java.util.*;
 
@@ -57,7 +57,7 @@ public class MiniGamesManager {
                     MiniGamesManager.instance = new MiniGamesManager();
 
                     // Register mini-games (may become a loop to load from config)
-                    instance.registeredGames.add(new TestMniGame());
+                    instance.registeredGames.add(new OneHeartChallenge());
 
                     // Register vote command
                     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
@@ -156,7 +156,7 @@ public class MiniGamesManager {
             return;
         }
 
-        currentGame.start();
+        currentGame.start(server, playerManager);
         currentState = GameState.PLAYING;
 
         playerManager.broadcast(Text.of("§6The Mini-Game §b" + currentGame.getName() + " §6started!"), false);

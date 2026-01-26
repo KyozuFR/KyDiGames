@@ -4,6 +4,6 @@ public interface MiniGame {
     String getName();
     int getDuration();
 
-    void start();
+    void start(MinecraftServer server, PlayerManager playerManager);
     void stop();
 }
